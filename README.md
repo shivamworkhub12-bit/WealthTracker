@@ -21,6 +21,12 @@ The local database defaults are for development only and are in `compose.yaml`. 
 
 Keep Docker Desktop running while using the app. If the API cannot connect to PostgreSQL, restart the database with `docker compose up -d --wait db`.
 
+## Browse the database visually
+
+Run `docker compose up -d adminer`, then open <http://localhost:8081>. This optional Adminer database viewer is bound to your Mac's loopback interface.
+
+Choose PostgreSQL and sign in with server `db`, username `wealthos`, password `wealthos_local_only`, and database `wealthos`. Open `transactions` and choose **Select data** to see the saved entries. The `categories` table contains their category details. Stop the viewer with `docker compose stop adminer`.
+
 ## Setup checks
 
 The backend compiled and Flyway applied the first migration. Transaction create/read/update/delete, category creation/deletion, dashboard totals, CSV import, and repeated-import duplicate detection passed local API checks using temporary records, which were removed afterward. The frontend production build passed, and npm reported zero known vulnerabilities after updating dependencies.
@@ -34,10 +40,20 @@ The backend compiled and Flyway applied the first migration. Transaction create/
 
 CSV upload and transaction APIs are local-only features. No bank, Gmail, or other account connection is configured.
 
+## iPhone SMS capture
+
+The **Automatic SMS capture** panel previews alerts, shows collector health, and provides a review queue. Opt-in collection from approved bank senders in Mac Messages is implemented but requires explicit consent and macOS access before it can run. See [the setup and privacy guide](docs/iphone-sms-capture.md). No actual Messages access is required to try the parser with the fictional example.
+
+The API and database ports are bound to this Mac's loopback interface. The collector authenticates with a local token, records only complete INR payments automatically when enabled, and sends uncertain candidates for review. Raw SMS text is not persisted. Source message IDs and bank references prevent repeated alerts from double-counting; payments with different references remain distinct.
+
 ## API
 
 - `GET/POST /api/transactions`, `GET/PUT/DELETE /api/transactions/{id}`
 - `GET/POST /api/categories`, `PUT/DELETE /api/categories/{id}`
 - `POST /api/imports/csv` (multipart field `file`)
 - `GET /api/dashboard?month=2026-10`
+- `GET /api/capture/status`, `GET /api/capture/alerts`
+- `POST /api/capture/preview`, `POST /api/capture/alerts`
+- `POST /api/capture/alerts/{id}/accept`, `POST /api/capture/alerts/{id}/ignore`
+- `POST /api/capture/incoming`, `POST /api/capture/heartbeat` (collector token required)
 

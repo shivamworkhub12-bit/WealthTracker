@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, CalendarDays, ChevronDown, CircleHelp, FileUp, LayoutDashboard, LoaderCircle, Plus, Search, Settings2, WalletCards, X } from "lucide-react";
+import CapturePanel from "./CapturePanel";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
-type Tx = { id: string; date: string; description: string; amount: number; type: "INCOME" | "EXPENSE"; categoryId?: string; categoryName?: string; account?: string };
+type Tx = { id: string; date: string; description: string; amount: number; type: "INCOME" | "EXPENSE"; categoryId?: string; categoryName?: string; account?: string; reference?: string; source?: string };
 type Category = { id: string; name: string; color: string; kind: string };
 type Summary = { month: string; income: number; expenses: number; balance: number; byCategory: { name: string; color: string; total: number }[]; recent: Tx[] };
-const money = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
+const money = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n || 0);
 const monthLabel = (month: string) => new Date(`${month}-02T12:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
 export default function Home() {
@@ -66,6 +67,7 @@ export default function Home() {
           <Stat label="Total expenses" value={money(summary?.expenses ?? 0)} icon={<ArrowUpRight size={17}/>} color="orange" note="Money out this month" loading={loading}/>
           <Stat label="Net balance" value={money(summary?.balance ?? 0)} icon={<WalletCards size={17}/>} color="blue" note="Income minus expenses" loading={loading}/>
         </div>
+        <CapturePanel api={API} categories={categories} onRecorded={() => void load()}/>
         <div className="dashboard-grid">
           <section className="panel category-panel"><div className="panel-head"><div><h2>Spending by category</h2><p>See what’s taking the biggest share.</p></div><button className="text-button">This month <ChevronDown size={14}/></button></div>
             {loading ? <div className="loading"><LoaderCircle className="spin" size={20}/></div> : summary?.byCategory.length ? <div className="category-list">{summary.byCategory.map((item, i) => { const pct = summary.expenses ? Math.round(item.total / summary.expenses * 100) : 0; return <div className="category-row" key={item.name}><div className="category-line"><span className="category-dot" style={{ background: item.color }}/><span className="category-name">{item.name}</span><span className="category-amount">{money(item.total)}</span><span className="category-pct">{pct}%</span></div><div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%`, background: item.color, animationDelay: `${i * 80}ms` }}/></div></div>; })}</div> : <Empty title="No spending to show" text="Add an expense or import a CSV to see your category breakdown."/>}

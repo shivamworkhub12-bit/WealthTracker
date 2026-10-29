@@ -12,8 +12,9 @@ public class TransactionController {
     private final TransactionService service;
     public TransactionController(TransactionService service) { this.service=service; }
     public record Request(LocalDate date, String description, BigDecimal amount, TransactionType type, UUID categoryId, String account) {}
-    public record View(UUID id, LocalDate date, String description, BigDecimal amount, TransactionType type, UUID categoryId, String categoryName, String account) {
-        static View from(Transaction t) { return new View(t.getId(),t.getDate(),t.getDescription(),t.getAmount(),t.getType(),t.getCategory()==null?null:t.getCategory().getId(),t.getCategory()==null?null:t.getCategory().getName(),t.getAccount()); }
+    public record View(UUID id, LocalDate date, String description, BigDecimal amount, TransactionType type, UUID categoryId, String categoryName, String account,
+                       String reference, String paymentMethod, String source) {
+        static View from(Transaction t) { return new View(t.getId(),t.getDate(),t.getDescription(),t.getAmount(),t.getType(),t.getCategory()==null?null:t.getCategory().getId(),t.getCategory()==null?null:t.getCategory().getName(),t.getAccount(),t.getReference(),t.getPaymentMethod(),t.getSource()); }
     }
     private TransactionService.Input input(Request r) { return new TransactionService.Input(r.date(),r.description(),r.amount(),r.type(),r.categoryId(),r.account()); }
     @GetMapping public List<View> list() { return service.list().stream().map(View::from).toList(); }

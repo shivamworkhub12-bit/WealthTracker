@@ -18,6 +18,9 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.EAGER) @JoinColumn(name = "category_id") private Category category;
     @Column(length = 80) private String account;
     @Column(nullable = false, unique = true, length = 64) private String fingerprint;
+    @Column(length = 80) private String reference;
+    @Column(name = "payment_method", length = 20) private String paymentMethod;
+    @Column(nullable = false, length = 20) private String source = "MANUAL";
 
     protected Transaction() {}
     public Transaction(LocalDate date, String description, BigDecimal amount, TransactionType type, Category category, String account, String fingerprint) {
@@ -31,6 +34,12 @@ public class Transaction {
     public Category getCategory() { return category; }
     public String getAccount() { return account; }
     public String getFingerprint() { return fingerprint; }
+    public String getReference() { return reference; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public String getSource() { return source; }
+    public void setCaptureDetails(String reference, String paymentMethod, String source) {
+        this.reference=reference; this.paymentMethod=paymentMethod; this.source=source;
+    }
     public void update(LocalDate date, String description, BigDecimal amount, TransactionType type, Category category, String account, String fingerprint) {
         this.date=date; this.description=description; this.amount=amount; this.type=type; this.category=category; this.account=account; this.fingerprint=fingerprint;
     }

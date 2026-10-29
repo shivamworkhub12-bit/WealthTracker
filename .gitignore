@@ -4,3 +4,6 @@ target/
 node_modules/
 .next/
 *.log
+.local/
+__pycache__/
+*.pyc

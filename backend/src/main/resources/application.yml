@@ -1,6 +1,8 @@
 spring:
   application:
     name: wealthos-api
+  config:
+    import: optional:file:${user.home}/.config/wealthos/capture.properties
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/wealthos}
     username: ${DB_USER:wealthos}
@@ -12,6 +14,7 @@ spring:
   flyway:
     enabled: true
 server:
+  address: 127.0.0.1
   port: ${PORT:8080}
   error:
     include-message: always
