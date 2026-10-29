@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: wealthos-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/wealthos}
+    username: ${DB_USER:wealthos}
+    password: ${DB_PASSWORD:wealthos_local_only}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: always
