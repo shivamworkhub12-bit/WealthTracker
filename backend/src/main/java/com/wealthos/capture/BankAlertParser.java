@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 public class BankAlertParser {
     private static final ZoneId ZONE = ZoneId.of("Asia/Kolkata");
     private static final Pattern AMOUNT = Pattern.compile("(?i)(?:INR|Rs\\.?|₹)\\s*([0-9]+(?:,[0-9]{2,3})*(?:\\.[0-9]+)?)(?![\\d.])");
-    private static final Pattern ACCOUNT = Pattern.compile("(?i)(?:a/c|acct?|account|card)(?:\\s+(?:no\\.?|ending(?:\\s+(?:in|with))?))?\\s*[:.-]?\\s*[Xx*•]*(\\d{4,20})");
+    private static final Pattern ACCOUNT = Pattern.compile("(?i)(?:a/c|acct?|account|card)(?:\\s+(?:no\\.?|number|ending(?:\\s+(?:in|with))?))?\\s*[:.-]?\\s*[Xx*•]*(\\d{4,20})");
     private static final Pattern REFERENCE = Pattern.compile("(?i)(?:UPI\\s+Ref(?:erence)?(?:\\s*(?:No\\.?|number))?|UTR|RRN|Ref(?:erence)?(?:\\s*(?:No\\.?|number))?)\\s*[:#.-]?\\s*([A-Z0-9]{6,40})\\b");
     private static final Pattern MERCHANT = Pattern.compile("(?i)\\b(?:paid\\s+to|at|to)\\s+([A-Za-z][A-Za-z0-9 &'._@/+-]{0,119}?)(?=\\s+(?:on|via|using|ref|upi|rrn|utr|avl|bal|available|txn|not\\s+you)\\b|[;\\n]|$)");
     private static final Pattern CREDIT_MERCHANT = Pattern.compile("(?i)\\bfrom\\s+([A-Za-z][A-Za-z0-9 &'._@/+-]{0,119}?)(?=\\s+(?:on|via|using|ref|upi|rrn|utr|avl|bal|available|txn)\\b|[;\\n]|$)");
@@ -29,10 +29,11 @@ public class BankAlertParser {
         if (message==null || message.isBlank() || message.length()>6000) throw new IllegalArgumentException("Alert text must contain 1–6000 characters");
         String text=message.replace('\u00a0',' ').replaceAll("[\\t\\r]", " ");
         String lower=text.toLowerCase(Locale.ROOT);
-        if (matches(lower,"\\b(?:otp|one[- ]time password|verification code|authentication code)\\b")) return ignored("Verification message ignored; no message text was saved.");
+        if (matches(lower,"\\b(?:otp|one[- ]time password|verification code|authentication code)\\s*(?:is\\s*)?[:.-]?\\s*\\d{4,8}\\b|\\b\\d{4,8}\\s+is\\s+(?:your\\s+)?otp\\b")
+                || (matches(lower,"\\b(?:otp|one[- ]time password|verification code|authentication code)\\b") && !matches(lower,"\\b(?:debited|spent|paid|credited|received|withdrawn)\\b"))) return ignored("Verification message ignored; no message text was saved.");
         if (matches(lower,"\\b(?:failed|declined|unsuccessful|pending|collect request|payment request|due date|payment due|will be debited|scheduled)\\b")) return ignored("Not a confirmed completed payment.");
-        boolean debit=matches(lower,"\\b(?:debited|spent|paid|purchased|purchase|withdrawn)\\b");
-        boolean credit=matches(lower,"\\b(?:credited|received|refunded|reversed)\\b");
+        boolean debit=matches(lower,"\\b(?:debited|spent|paid|purchased|purchase|withdrawn|charged)\\b|\\b(?:transaction type|type|direction)\\s*[:=-]?\\s*debit\\b|(?m)^\\s*debit\\s*$|(?s)\\bcard\\b.{0,150}\\bused\\b");
+        boolean credit=matches(lower,"\\b(?:credited|received|refunded|reversed)\\b|\\b(?:transaction type|type|direction)\\s*[:=-]?\\s*credit\\b|(?m)^\\s*credit\\s*$");
         if (!debit && !credit) return ignored("No completed debit or credit was found.");
 
         List<String> notes=new ArrayList<>();
@@ -65,6 +66,7 @@ public class BankAlertParser {
             if (merchant.matches("(?i)(?:your\\s+)?(?:a/c|account|card).*")) merchant=null;
         }
         if (merchant==null && credit) merchant=find(CREDIT_MERCHANT,text);
+        if (merchant==null) merchant=find(Pattern.compile("(?i)(?:merchant(?: name)?|beneficiary(?: name)?|payee|recipient)\\s*[:=-]?\\s*([^\\n]{1,120})"),text);
         if (merchant==null) notes.add("The merchant or sender was not found.");
         LocalDate date=null; Matcher dateMatcher=DATE.matcher(text);
         if (dateMatcher.find()) date=parseDate(dateMatcher.group(1));

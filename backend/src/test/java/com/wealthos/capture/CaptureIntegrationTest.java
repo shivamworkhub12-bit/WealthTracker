@@ -25,6 +25,7 @@ class CaptureIntegrationTest {
         properties.add("wealthos.capture.token-file",TOKEN::toString);
         properties.add("wealthos.capture.allowed-senders",()->"TESTBANK");
         properties.add("wealthos.capture.auto-record",()->"true");
+        properties.add("wealthos.gmail.scheduling-enabled",()->"false");
     }
     @AfterAll static void cleanup() throws Exception { Files.deleteIfExists(TOKEN); }
     @Autowired CaptureService service;
@@ -60,6 +61,17 @@ class CaptureIntegrationTest {
         service.ingest(alert(ref),"TESTBANK",UUID.randomUUID().toString(),received,true);
         var conflict=service.ingest(alert(ref).replace("999.17","888.16"),"TESTBANK",UUID.randomUUID().toString(),received,true);
         assertEquals("REVIEW",conflict.status());assertNull(conflict.transactionId());
+    }
+    @Test void emailAndSmsForTheSamePaymentAreDeduplicated() {
+        String ref=reference();long before=transactions.count();
+        var sms=service.ingest(alert(ref),"TESTBANK",UUID.randomUUID().toString(),received,true);
+        var email=service.ingestEmail(alert(ref),"bank@example.test",UUID.randomUUID().toString(),received,true,true);
+        assertEquals("DUPLICATE",email.status());assertEquals(sms.transactionId(),email.transactionId());assertEquals(before+1,transactions.count());
+    }
+    @Test void unverifiedEmailNeverRecordsAutomatically() {
+        long before=transactions.count();
+        var email=service.ingestEmail(alert(reference()),"bank@example.test",UUID.randomUUID().toString(),received,false,true);
+        assertEquals("REVIEW",email.status());assertEquals("GMAIL",email.source());assertEquals(before,transactions.count());
     }
     @Test void incomingRequiresTokenAndApprovedSender() throws Exception {
         String payload="{\"text\":\"INR 1 debited\",\"sender\":\"UNAPPROVED\",\"sourceId\":\"test\",\"receivedAt\":\"2026-10-29T11:00:00Z\"}";

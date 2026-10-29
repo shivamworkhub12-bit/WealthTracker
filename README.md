@@ -40,6 +40,10 @@ The backend compiled and Flyway applied the first migration. Transaction create/
 
 CSV upload and transaction APIs are local-only features. No bank, Gmail, or other account connection is configured.
 
+## Gmail transaction tracking
+
+WealthOS now has its own **Connect Gmail** flow and background Gmail sync. Configure a Google Desktop OAuth client, then authorize the expected finance account in the dashboard. The app requests read-only access, filters bank senders, encrypts refresh tokens locally, and shares duplicate detection and the review queue with SMS capture. See [Gmail setup](docs/gmail-setup.md) for the one-time Google project setup and local credentials import. A Gmail integration connected in the chat does not authorize this separate application.
+
 ## iPhone SMS capture
 
 The **Automatic SMS capture** panel previews alerts, shows collector health, and provides a review queue. Opt-in collection from approved bank senders in Mac Messages is implemented but requires explicit consent and macOS access before it can run. See [the setup and privacy guide](docs/iphone-sms-capture.md). No actual Messages access is required to try the parser with the fictional example.
@@ -56,4 +60,6 @@ The API and database ports are bound to this Mac's loopback interface. The colle
 - `POST /api/capture/preview`, `POST /api/capture/alerts`
 - `POST /api/capture/alerts/{id}/accept`, `POST /api/capture/alerts/{id}/ignore`
 - `POST /api/capture/incoming`, `POST /api/capture/heartbeat` (collector token required)
+- `GET /api/gmail/status`, `POST /api/gmail/connect`, `POST /api/gmail/sync`, `POST /api/gmail/disconnect`
+- `GET /api/gmail/authorize`, `GET /api/gmail/oauth/callback` (browser authorization flow)
 

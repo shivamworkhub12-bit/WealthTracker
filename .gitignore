@@ -7,3 +7,6 @@ node_modules/
 .local/
 __pycache__/
 *.pyc
+client_secret*.json
+credentials.json
+token.json

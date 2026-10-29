@@ -56,4 +56,11 @@ class BankAlertParserTest {
         var repeated=new TransactionService.Input(one.date(),"CAFE PAYMENT",one.amount(),one.type(),null,one.account(),one.reference(),"UPI","SMS");
         assertEquals(TransactionService.fingerprint(one),TransactionService.fingerprint(repeated));
     }
+    @Test void emailFooterAboutOtpDoesNotHideACompletedPayment() {
+        assertTrue(parser.parse(debit("123456789012")+". Never share your OTP or password.",received).autoEligible());
+    }
+    @Test void creditCardSpendingIsNotMisclassifiedAsIncome() {
+        var p=parser.parse("INR 250.50 spent on credit card ending 1234 at SWIGGY on 29-10-2026 Ref 123456789012",received);
+        assertEquals(TransactionType.EXPENSE,p.type());assertTrue(p.autoEligible(),p.notes().toString());
+    }
 }

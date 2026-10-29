@@ -34,16 +34,22 @@ public class CaptureService {
     @Transactional(readOnly=true) public List<View> list() { return alerts.findTop100ByOrderByCreatedAtDesc().stream().map(this::view).toList(); }
 
     @Transactional public View ingest(String message,String sender,String sourceId,Instant receivedAt,boolean collector) {
+        return process(message,sender,sourceId,receivedAt,collector?"SMS":"PASTED_SMS",collector && settings.autoRecord,true);
+    }
+    @Transactional public View ingestEmail(String message,String sender,String sourceId,Instant receivedAt,boolean authenticated,boolean autoRecord) {
+        return process(message,sender,sourceId,receivedAt,"GMAIL",autoRecord,authenticated);
+    }
+    private View process(String message,String sender,String sourceId,Instant receivedAt,String source,boolean autoRecord,boolean trusted) {
         // Serialize capture writes across requests; the event and transaction commit together.
         lock();
-        String source=collector?"SMS":"PASTED_SMS";
         String key=hash(source+"|"+(sourceId==null || sourceId.isBlank()?hash(message.trim()):sourceId));
         var existing=alerts.findByEventKey(key);
         if (existing.isPresent()) return view(existing.get());
         Instant timestamp=receivedAt==null?Instant.now():receivedAt;
-        if (timestamp.isAfter(Instant.now().plusSeconds(300))) throw new IllegalArgumentException("SMS timestamp cannot be in the future");
+        if (timestamp.isAfter(Instant.now().plusSeconds(300))) throw new IllegalArgumentException("Alert timestamp cannot be in the future");
         var parsed=parser.parse(message,timestamp);
         var alert=new CapturedAlert(key,sender==null || sender.isBlank()?"Pasted alert":sender.trim(),source,timestamp,parsed);
+        if (!trusted && !parsed.ignored()) alert.notes=append(alert.notes,"Email sender authentication could not be confirmed or the email was truncated. Review before recording.");
         alerts.save(alert);
         if (!parsed.ignored()) {
             var exact=parsed.amount()!=null && parsed.type()!=null && parsed.description()!=null
@@ -55,7 +61,7 @@ public class CaptureService {
                 } else alert.notes=append(alert.notes,"This bank reference matches a record with different details. Check it before saving.");
             } else if (potentialDuplicate(alert)) {
                 alert.notes=append(alert.notes,"A similar transaction already exists. Check for a manual entry or another alert.");
-            } else if (collector && settings.autoRecord && parsed.autoEligible()) {
+            } else if (autoRecord && trusted && parsed.autoEligible()) {
                 record(alert,input(alert,null));
             }
         }
@@ -66,7 +72,7 @@ public class CaptureService {
         lock();CapturedAlert alert=alerts.findById(id).orElseThrow(()->new NoSuchElementException("Alert not found"));
         if (alert.status.equals("RECORDED") || alert.status.equals("DUPLICATE")) return view(alert);
         if (!alert.status.equals("REVIEW")) throw new IllegalArgumentException("Only alerts awaiting review can be recorded");
-        var full=new TransactionService.Input(input.date(),input.description(),input.amount(),input.type(),input.categoryId(),input.account(),input.reference(),input.paymentMethod(),"SMS");
+        var full=new TransactionService.Input(input.date(),input.description(),input.amount(),input.type(),input.categoryId(),input.account(),input.reference(),input.paymentMethod(),alert.source.equals("GMAIL")?"GMAIL":"SMS");
         if (full.date()==null || full.amount()==null || full.type()==null || full.description()==null || full.description().isBlank()) throw new IllegalArgumentException("Check the date, amount, type, and description");
         String fp=TransactionService.fingerprint(full);
         var existing=transactions.findByFingerprint(fp);
@@ -107,7 +113,7 @@ public class CaptureService {
     private TransactionService.Input input(CapturedAlert a,UUID categoryId) {
         if (categoryId==null && a.suggestedCategory!=null) categoryId=categories.findAll().stream()
                 .filter(c->c.getName().equals(a.suggestedCategory) && a.type!=null && c.getKind().equals(a.type.name())).map(c->c.getId()).findFirst().orElse(null);
-        return new TransactionService.Input(a.date,a.description,a.amount,a.type,categoryId,a.account,a.reference,a.paymentMethod,"SMS");
+        return new TransactionService.Input(a.date,a.description,a.amount,a.type,categoryId,a.account,a.reference,a.paymentMethod,a.source.equals("GMAIL")?"GMAIL":"SMS");
     }
     private boolean potentialDuplicate(CapturedAlert a) {
         if (a.date==null || a.amount==null || a.type==null) return false;
